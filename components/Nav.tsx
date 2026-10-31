@@ -4,19 +4,26 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { logout } from '@/app/login/actions';
 
-export default function Nav({ pending, lowStock }: { pending: number; lowStock: number }) {
+export default function Nav({ pending, lowStock, storeName }: { pending: number; lowStock: number; storeName: string }) {
   const path = usePathname();
-  const is = (p: string) => (p === '/' ? path === '/' : path.startsWith(p));
+  const is = (p: string) => (p === '/' ? path === '/' : path === p || path.startsWith(`${p}/`));
+  const link = (href: string, label: string, badge?: number) => (
+    <Link href={href} className={is(href) ? 'active' : ''}>
+      {label} {badge ? <span className="pill">{badge}</span> : null}
+    </Link>
+  );
   return (
     <nav className="side">
-      <div className="brand">Shop<span>Admin</span></div>
-      <Link href="/" className={is('/') ? 'active' : ''}>Dashboard</Link>
-      <Link href="/orders" className={is('/orders') ? 'active' : ''}>
-        Orders {pending > 0 && <span className="pill">{pending}</span>}
-      </Link>
-      <Link href="/stock" className={is('/stock') ? 'active' : ''}>
-        Low stock {lowStock > 0 && <span className="pill">{lowStock}</span>}
-      </Link>
+      <div className="brand" title={storeName}>{storeName}<span> · Admin</span></div>
+      {link('/', 'Dashboard')}
+      {link('/orders', 'Orders', pending)}
+      <div className="nav-sep">Catalogue</div>
+      {link('/products', 'Products')}
+      {link('/categories', 'Categories')}
+      {link('/stock', 'Low stock', lowStock)}
+      <div className="nav-sep">People & store</div>
+      {link('/customers', 'Customers')}
+      {link('/settings', 'Store settings')}
       <form action={logout}>
         <button type="submit">Sign out</button>
       </form>
