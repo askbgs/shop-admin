@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { q } from '@/lib/db';
 import { errUrl } from '@/lib/errors';
 import { deleteImageIfUnused, MAX_IMAGE_BYTES, saveImage, sniffImage } from '@/lib/media';
+import { PinpicxError } from '@/lib/pinpicx';
 
 const UUID = /^[0-9a-f-]{36}$/i;
 
@@ -51,7 +52,23 @@ export async function uploadImage(fd: FormData) {
 
   const width = Number(fd.get('width')) || undefined;
   const height = Number(fd.get('height')) || undefined;
-  const url = await saveImage(buf, width, height);
+  const [names] = await q<{ name: string; color: string | null; size: string | null }>(
+    `SELECT p.name, v.color, v.size FROM products p LEFT JOIN product_variants v ON v.id = $2 WHERE p.id = $1`,
+    [t.productId, t.variantId ?? null],
+  );
+  const fileName = [names?.name, t.kind === 'variant' ? names?.color : null, t.kind === 'variant' ? names?.size : null]
+    .filter(Boolean)
+    .join(' ');
+
+  let url: string | null = null;
+  let msg: string | null = null;
+  try {
+    url = await saveImage(buf, { width, height, name: fileName });
+  } catch (e) {
+    msg = e instanceof PinpicxError ? e.message : 'Could not save the photo. Please try again.';
+    if (!(e instanceof PinpicxError)) console.error(e);
+  }
+  if (msg || !url) redirect(errUrl(base, msg ?? 'Could not save the photo.'));
   await setUrl(t, url);
   await deleteImageIfUnused(old);
   revalidatePath('/', 'layout');

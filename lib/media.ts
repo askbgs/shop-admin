@@ -1,6 +1,7 @@
 import 'server-only';
 import { headers } from 'next/headers';
 import { q } from './db';
+import { deleteFromPinpicx, pinpicxEnabled, uploadToPinpicx } from './pinpicx';
 
 export const MAX_IMAGE_BYTES = 6 * 1024 * 1024;
 const MEDIA_RE = /\/media\/([0-9a-f-]{36})\.(?:jpg|png|webp)(?:\?.*)?$/i;
@@ -13,7 +14,7 @@ export function sniffImage(buf: Buffer): { type: string; ext: string } | null {
   return null;
 }
 
-// Public base URL used in image links the WhatsApp agent sends (must be reachable from the internet).
+// Public base URL for photos served by this app (fallback storage when PinPicX is not configured).
 export async function publicBaseUrl(): Promise<string> {
   const env = process.env.PUBLIC_BASE_URL?.replace(/\/+$/, '');
   if (env) return env;
@@ -23,12 +24,33 @@ export async function publicBaseUrl(): Promise<string> {
   return `${proto}://${host}`;
 }
 
-export async function saveImage(buf: Buffer, width?: number, height?: number): Promise<string> {
+function slug(s: string): string {
+  return s.toLowerCase().normalize('NFKD').replace(/[^\w]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'photo';
+}
+
+/**
+ * Store a photo and return the public URL to save on the product / variant.
+ * With PINPICX_API_KEY set it is uploaded to PinPicX (the URL is the PinPicX direct link);
+ * otherwise it is kept in Postgres and served from /media/<id>.<ext>.
+ */
+export async function saveImage(buf: Buffer, opts: { width?: number; height?: number; name?: string } = {}): Promise<string> {
   const kind = sniffImage(buf);
   if (!kind) throw new Error('UNSUPPORTED_IMAGE');
+
+  if (pinpicxEnabled()) {
+    const name = `${slug(opts.name ?? 'product')}.${kind.ext}`;
+    const { id, url } = await uploadToPinpicx(buf, kind.type, name);
+    await q(
+      `INSERT INTO hosted_images (url, provider, remote_id) VALUES ($1, 'pinpicx', $2)
+       ON CONFLICT (url) DO UPDATE SET remote_id = EXCLUDED.remote_id`,
+      [url, id],
+    );
+    return url;
+  }
+
   const [row] = await q<{ id: string }>(
     `INSERT INTO media (content_type, data, bytes, width, height) VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-    [kind.type, buf, buf.length, width ?? null, height ?? null],
+    [kind.type, buf, buf.length, opts.width ?? null, opts.height ?? null],
   );
   return `${await publicBaseUrl()}/media/${row.id}.${kind.ext}`;
 }
@@ -37,16 +59,33 @@ export function mediaIdFromUrl(url: string | null | undefined): string | null {
   return url?.match(MEDIA_RE)?.[1] ?? null;
 }
 
-// Delete an uploaded image once nothing points to it any more.
-export async function deleteImageIfUnused(url: string | null | undefined) {
-  const id = mediaIdFromUrl(url);
-  if (!id) return;
-  const like = `%/media/${id}.%`;
-  await q(
-    `DELETE FROM media m WHERE m.id = $1
-        AND NOT EXISTS (SELECT 1 FROM products WHERE image_url LIKE $2)
-        AND NOT EXISTS (SELECT 1 FROM product_variants WHERE image_url LIKE $2)
-        AND NOT EXISTS (SELECT 1 FROM store_settings WHERE logo_url LIKE $2)`,
-    [id, like],
+async function stillUsed(url: string): Promise<boolean> {
+  const [r] = await q<{ used: boolean }>(
+    `SELECT EXISTS (SELECT 1 FROM products WHERE image_url = $1)
+         OR EXISTS (SELECT 1 FROM product_variants WHERE image_url = $1)
+         OR EXISTS (SELECT 1 FROM store_settings WHERE logo_url = $1) AS used`,
+    [url],
   );
+  return r.used;
+}
+
+// Delete an uploaded photo (from Postgres or PinPicX) once nothing points to it any more.
+// Never throws: a failed clean-up must not block the admin's change.
+export async function deleteImageIfUnused(url: string | null | undefined): Promise<void> {
+  if (!url) return;
+  try {
+    if (await stillUsed(url)) return;
+
+    const hosted = await q<{ remote_id: string | null }>(`SELECT remote_id FROM hosted_images WHERE url = $1`, [url]);
+    if (hosted[0]) {
+      if (hosted[0].remote_id && pinpicxEnabled()) await deleteFromPinpicx(hosted[0].remote_id);
+      await q(`DELETE FROM hosted_images WHERE url = $1`, [url]);
+      return;
+    }
+
+    const id = mediaIdFromUrl(url);
+    if (id) await q(`DELETE FROM media WHERE id = $1`, [id]);
+  } catch (e) {
+    console.error('Image clean-up failed for', url, e);
+  }
 }

@@ -53,6 +53,14 @@ CREATE TABLE IF NOT EXISTS public.media (
   created_at   timestamptz NOT NULL DEFAULT now()
 );
 
+-- 2c. Photos hosted on PinPicX: remember the PinPicX image id so replaced photos can be deleted there too
+CREATE TABLE IF NOT EXISTS public.hosted_images (
+  url        text PRIMARY KEY,
+  provider   text NOT NULL DEFAULT 'pinpicx',
+  remote_id  text,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
 -- 3. Uniqueness + performance indexes (skipped quietly if existing data has duplicates)
 DO $m$ BEGIN
   CREATE UNIQUE INDEX IF NOT EXISTS customers_phone_key ON public.customers (phone);

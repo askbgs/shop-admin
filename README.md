@@ -17,8 +17,10 @@ database the n8n sales agent writes orders into (`fashion_shop_schema.sql`).
   tags, active flag); sizes, colours, extra price and stock edited inline per variant. Sold products and
   variants can only be deactivated, never deleted, so order history stays intact.
 - **Photos** – upload a main photo per product and a separate photo for each variant (colour/size). Photos are
-  resized in the browser to max 1600 px JPEG, stored in Postgres (`media` table) and served publicly at
-  `/media/<id>.jpg` so the WhatsApp agent can send them. Variants without their own photo use the main photo
+  resized in the browser to max 1600 px JPEG and uploaded to **PinPicX** (`POST /v1/upload`, key in the
+  `X-API-Key` header); the PinPicX direct link (`data.url`) is saved as the image URL and the PinPicX image id
+  is kept in `hosted_images` so replaced/removed photos are also deleted on PinPicX. Without
+  `PINPICX_API_KEY` photos are stored in Postgres (`media` table) and served at `/media/<id>.jpg` instead. Variants without their own photo use the main photo
   (the `variant_catalog` view does `COALESCE(variant image, product image)`). Replaced or removed photos are
   deleted automatically.
 - **Categories** – add, rename (moves all products to the new name in one transaction), delete when unused.
@@ -53,7 +55,9 @@ All money values are stored in cents and shown as LKR; dates use Asia/Colombo.
    | `ADMIN_PASSWORD` | a strong password |
    | `SESSION_SECRET` | 32+ random characters (`openssl rand -hex 32`) |
    | `LOW_STOCK_THRESHOLD` | `5` (optional) |
-   | `PUBLIC_BASE_URL` | optional – your dashboard's public URL; only needed with a custom domain |
+   | `PINPICX_API_KEY` | your PinPicX API key – photos are uploaded to pinpicx.app |
+   | `PINPICX_ALBUM_ID` | optional – PinPicX album to put the photos in |
+   | `PUBLIC_BASE_URL` | optional – only used when no PinPicX key is set (photos served by the dashboard) |
 
    Leave `DATABASE_SSL` unset on Railway (the private network doesn't use SSL).
 4. Railway detects Next.js and runs `npm run build` / `npm start` automatically.
