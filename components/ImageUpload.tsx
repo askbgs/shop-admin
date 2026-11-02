@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useState, useTransition } from 'react';
+import { shrinkImage } from '@/lib/shrink-image';
 
 type Props = {
   upload: (fd: FormData) => Promise<void>;
@@ -11,33 +12,6 @@ type Props = {
   size?: 'sm' | 'lg';
   label?: string;
 };
-
-const MAX_SIDE = 1600;
-
-// Resize + convert to JPEG in the browser: small uploads and a format WhatsApp always accepts.
-async function shrink(file: File): Promise<{ blob: Blob; width: number; height: number }> {
-  let bmp: ImageBitmap;
-  try {
-    bmp = await createImageBitmap(file, { imageOrientation: 'from-image' });
-  } catch {
-    throw new Error('This photo format can’t be read here. Use a JPG or PNG (iPhone HEIC photos: change Camera → Formats → Most Compatible).');
-  }
-  const scale = Math.min(1, MAX_SIDE / Math.max(bmp.width, bmp.height));
-  const width = Math.round(bmp.width * scale);
-  const height = Math.round(bmp.height * scale);
-  const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error('Could not process the photo.');
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, width, height);
-  ctx.drawImage(bmp, 0, 0, width, height);
-  bmp.close();
-  const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, 'image/jpeg', 0.86));
-  if (!blob) throw new Error('Could not process the photo.');
-  return { blob, width, height };
-}
 
 export default function ImageUpload({ upload, remove, fields, imageUrl, fallbackUrl, size = 'sm', label }: Props) {
   const input = useRef<HTMLInputElement>(null);
@@ -59,7 +33,7 @@ export default function ImageUpload({ upload, remove, fields, imageUrl, fallback
     if (!file) return;
     setError(null);
     try {
-      const { blob, width, height } = await shrink(file);
+      const { blob, width, height } = await shrinkImage(file);
       setPreview(URL.createObjectURL(blob));
       const data = fd();
       data.set('file', new File([blob], 'photo.jpg', { type: 'image/jpeg' }));

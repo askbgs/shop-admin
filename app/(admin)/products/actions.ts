@@ -5,13 +5,14 @@ import { redirect } from 'next/navigation';
 import { pool, q } from '@/lib/db';
 import { dbMessage, errUrl } from '@/lib/errors';
 import { GENDERS, str, toCents } from '@/lib/lk';
-import { deleteImageIfUnused } from '@/lib/media';
+import { deleteImageIfUnused, MAX_IMAGE_BYTES, saveImage, sniffImage } from '@/lib/media';
+import { PinpicxError } from '@/lib/pinpicx';
 
 const UUID = /^[0-9a-f-]{36}$/i;
 
 type ProductInput = {
   sku: string | null; name: string; description: string | null; category: string; gender: string;
-  brand: string | null; material: string | null; price_cents: number; image_url: string | null;
+  brand: string | null; material: string | null; price_cents: number;
   tags: string[]; is_active: boolean;
 };
 
@@ -20,12 +21,10 @@ function readProduct(fd: FormData): { data?: ProductInput; error?: string } {
   const category = str(fd, 'category', 80);
   const gender = String(fd.get('gender') ?? 'unisex');
   const price = toCents(fd.get('price'));
-  const image = str(fd, 'image_url', 1000);
   if (!name) return { error: 'Product name is required.' };
   if (!category) return { error: 'Choose a category.' };
   if (!(GENDERS as readonly string[]).includes(gender)) return { error: 'Choose a valid gender.' };
   if (price === null) return { error: 'Enter a valid price in LKR.' };
-  if (image && !/^https?:\/\//i.test(image)) return { error: 'Image URL must start with http:// or https://' };
   const tags = String(fd.get('tags') ?? '')
     .split(',')
     .map((t) => t.trim().toLowerCase())
@@ -41,7 +40,6 @@ function readProduct(fd: FormData): { data?: ProductInput; error?: string } {
       brand: str(fd, 'brand', 100),
       material: str(fd, 'material', 100),
       price_cents: price,
-      image_url: image,
       tags,
       is_active: fd.get('is_active') === 'on',
     },
@@ -52,9 +50,34 @@ async function ensureCategory(name: string) {
   await q(`INSERT INTO categories (name) VALUES ($1) ON CONFLICT (name) DO NOTHING`, [name]);
 }
 
+// Reads the optional photo from the form (already resized to JPEG in the browser) and uploads it
+// to PinPicX (or Postgres when no PinPicX key is set). Returns the public URL, or an error message.
+async function uploadFormPhoto(fd: FormData, name: string): Promise<{ url: string | null; error?: string }> {
+  const file = fd.get('photo');
+  if (!(file instanceof File) || file.size === 0) return { url: null };
+  if (file.size > MAX_IMAGE_BYTES) return { url: null, error: 'Photo is too large (max 6 MB).' };
+  const buf = Buffer.from(await file.arrayBuffer());
+  if (!sniffImage(buf)) return { url: null, error: 'Only JPG, PNG or WebP photos can be uploaded.' };
+  try {
+    const url = await saveImage(buf, {
+      width: Number(fd.get('photo_width')) || undefined,
+      height: Number(fd.get('photo_height')) || undefined,
+      name,
+    });
+    return { url };
+  } catch (e) {
+    if (!(e instanceof PinpicxError)) console.error(e);
+    return { url: null, error: e instanceof PinpicxError ? e.message : 'Could not upload the photo. Please try again.' };
+  }
+}
+
 export async function createProduct(fd: FormData) {
   const { data, error } = readProduct(fd);
   if (!data) redirect(errUrl('/products/new', error!));
+
+  const photo = await uploadFormPhoto(fd, data.name);
+  if (photo.error) redirect(errUrl('/products/new', `${photo.error} The product was not created — please try again.`));
+
   let id: string | null = null;
   let msg: string | null = null;
   try {
@@ -62,13 +85,16 @@ export async function createProduct(fd: FormData) {
     const [row] = await q<{ id: string }>(
       `INSERT INTO products (sku, name, description, category, gender, brand, material, price_cents, image_url, tags, is_active)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id`,
-      [data.sku, data.name, data.description, data.category, data.gender, data.brand, data.material, data.price_cents, data.image_url, data.tags, data.is_active],
+      [data.sku, data.name, data.description, data.category, data.gender, data.brand, data.material, data.price_cents, photo.url, data.tags, data.is_active],
     );
     id = row.id;
   } catch (e) {
     msg = dbMessage(e);
   }
-  if (msg) redirect(errUrl('/products/new', msg));
+  if (msg) {
+    await deleteImageIfUnused(photo.url); // don't leave an orphan photo on PinPicX
+    redirect(errUrl('/products/new', msg));
+  }
   revalidatePath('/products');
   redirect(`/products/${id}?ok=created`);
 }
@@ -80,21 +106,19 @@ export async function updateProduct(fd: FormData) {
   const { data, error } = readProduct(fd);
   if (!data) redirect(errUrl(base, error!));
   let msg: string | null = null;
-  let oldImage: string | null = null;
   try {
     await ensureCategory(data.category);
-    oldImage = (await q<{ image_url: string | null }>(`SELECT image_url FROM products WHERE id = $1`, [id]))[0]?.image_url ?? null;
+    // The photo is managed by the uploader on the product page, so image_url is not changed here.
     await q(
       `UPDATE products SET sku=$2, name=$3, description=$4, category=$5, gender=$6, brand=$7, material=$8,
-              price_cents=$9, image_url=$10, tags=$11, is_active=$12
+              price_cents=$9, tags=$10, is_active=$11
         WHERE id=$1`,
-      [id, data.sku, data.name, data.description, data.category, data.gender, data.brand, data.material, data.price_cents, data.image_url, data.tags, data.is_active],
+      [id, data.sku, data.name, data.description, data.category, data.gender, data.brand, data.material, data.price_cents, data.tags, data.is_active],
     );
   } catch (e) {
     msg = dbMessage(e);
   }
   if (msg) redirect(errUrl(base, msg));
-  if (oldImage !== data.image_url) await deleteImageIfUnused(oldImage);
   revalidatePath('/', 'layout');
   redirect(`${base}?ok=saved`);
 }

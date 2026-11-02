@@ -1,5 +1,6 @@
 import { centsToInput, GENDERS } from '@/lib/lk';
 import type { Product } from '@/lib/catalog';
+import PhotoPicker from './PhotoPicker';
 
 export default function ProductForm({
   action,
@@ -54,11 +55,12 @@ export default function ProductForm({
           <span>Description</span>
           <textarea name="description" maxLength={2000} defaultValue={product?.description ?? ''} placeholder="What the agent tells customers about this item" />
         </label>
-        <label className="field full">
-          <span>Image URL</span>
-          <input name="image_url" type="url" maxLength={1000} defaultValue={product?.image_url ?? ''} placeholder="https://..." />
-          <small>{product ? 'Filled in automatically when you upload a photo on the right — or paste a public link.' : 'Optional — you can upload a photo after creating the product.'}</small>
-        </label>
+        {!product && (
+          <div className="field full">
+            <span>Product photo</span>
+            <PhotoPicker />
+          </div>
+        )}
         <label className="field full">
           <span>Tags</span>
           <input name="tags" maxLength={400} defaultValue={(product?.tags ?? []).join(', ')} placeholder="casual, cotton, party" />

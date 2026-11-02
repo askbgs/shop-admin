@@ -64,7 +64,7 @@ export default async function ProductPage({
               label="Upload main product photo"
             />
             <div className="muted" style={{ marginTop: 8 }}>
-              JPG or PNG from your phone or computer — it&apos;s resized automatically. Used for every variant that has no photo of its own.
+              JPG or PNG from your phone or computer — resized automatically and uploaded to PinPicX. Used for every variant that has no photo of its own.
             </div>
           </div>
           <div className="card danger-zone">

@@ -75,6 +75,11 @@ td.tight { width: 1%; white-space: nowrap; }
 .img-up-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .img-up-x { position: absolute; top: -6px; right: -6px; width: 20px; height: 20px; border-radius: 50%; border: 1px solid #efc2bf; background: #fff; color: var(--bad); font-size: 10px; line-height: 1; cursor: pointer; padding: 0; }
 .img-up-err { color: var(--bad); font-size: 12px; max-width: 260px; }
+.photo-picker { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
+.pp-box { width: 160px; height: 160px; flex: none; }
+.pp-empty { display: flex; flex-direction: column; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; }
+.pp-side { display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 200px; }
+.pp-side small { line-height: 1.45; }
 
 @media (max-width: 700px) {
   .form-grid { grid-template-columns: 1fr; }
