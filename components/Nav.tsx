@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { logout } from '@/app/login/actions';
+import PendingModal from './PendingModal';
 
 export default function Nav({ pending, lowStock, storeName }: { pending: number; lowStock: number; storeName: string }) {
   const path = usePathname();
@@ -25,6 +26,7 @@ export default function Nav({ pending, lowStock, storeName }: { pending: number;
       {link('/customers', 'Customers')}
       {link('/settings', 'Store settings')}
       <form action={logout}>
+        <PendingModal title="Signing out…" />
         <button type="submit">Sign out</button>
       </form>
     </nav>

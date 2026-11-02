@@ -2,6 +2,7 @@
 
 import { useRef, useState, useTransition } from 'react';
 import { shrinkImage } from '@/lib/shrink-image';
+import BusyModal from './BusyModal';
 
 type Props = {
   upload: (fd: FormData) => Promise<void>;
@@ -18,6 +19,7 @@ export default function ImageUpload({ upload, remove, fields, imageUrl, fallback
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
+  const [busyMode, setBusyMode] = useState<'upload' | 'remove'>('upload');
   const shown = preview ?? imageUrl ?? fallbackUrl ?? null;
   const usingFallback = !preview && !imageUrl && !!fallbackUrl;
 
@@ -39,6 +41,7 @@ export default function ImageUpload({ upload, remove, fields, imageUrl, fallback
       data.set('file', new File([blob], 'photo.jpg', { type: 'image/jpeg' }));
       data.set('width', String(width));
       data.set('height', String(height));
+      setBusyMode('upload');
       start(() => upload(data));
     } catch (err) {
       setError((err as Error).message);
@@ -47,11 +50,17 @@ export default function ImageUpload({ upload, remove, fields, imageUrl, fallback
 
   const onRemove = () => {
     setPreview(null);
+    setBusyMode('remove');
     start(() => remove(fd()));
   };
 
   return (
     <div className={`img-up ${size}`}>
+      <BusyModal
+        open={pending}
+        title={busyMode === 'remove' ? 'Removing photo…' : 'Uploading photo…'}
+        detail={busyMode === 'remove' ? 'Deleting the photo from PinPicX.' : 'Sending the photo to PinPicX and saving it.'}
+      />
       <button
         type="button"
         className={`img-up-box ${usingFallback ? 'fallback' : ''}`}

@@ -6,6 +6,7 @@ import StatusBadge from '@/components/StatusBadge';
 import { getCustomer } from '@/lib/customers';
 import { dateTime, lkr } from '@/lib/format';
 import { deleteCustomer, updateCustomer } from '../actions';
+import PendingModal from '@/components/PendingModal';
 
 export const dynamic = 'force-dynamic';
 
@@ -64,6 +65,7 @@ export default async function CustomerPage({
           </div>
           {orders.length === 0 && (
             <form action={deleteCustomer} className="card danger-zone">
+              <PendingModal title="Deleting customer…" />
               <h2>Delete customer</h2>
               <input type="hidden" name="id" value={customer.id} />
               <div className="muted" style={{ marginBottom: 10 }}>Only customers without orders can be deleted.</div>

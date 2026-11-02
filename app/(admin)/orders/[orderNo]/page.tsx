@@ -4,6 +4,7 @@ import StatusBadge from '@/components/StatusBadge';
 import { NEXT_STATUS, dateTime, lkr } from '@/lib/format';
 import { getCustomerOrderCount, getOrder } from '@/lib/queries';
 import { changeStatus } from './actions';
+import PendingModal from '@/components/PendingModal';
 
 export const dynamic = 'force-dynamic';
 
@@ -47,6 +48,12 @@ export default async function OrderPage({
         </div>
         {next.length > 0 && (
           <form action={changeStatus} className="actions">
+            <PendingModal
+              title="Updating order…"
+              field="to"
+              titles={{ confirmed: 'Confirming order…', packed: 'Marking as packed…', shipped: 'Marking as shipped…', delivered: 'Marking as delivered…', cancelled: 'Cancelling order…' }}
+              detail="Updating the order status. Cancelling puts the stock back."
+            />
             <input type="hidden" name="orderNo" value={order.order_no} />
             {next.map((s) => (
               <button

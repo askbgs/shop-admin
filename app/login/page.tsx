@@ -1,4 +1,5 @@
 import { login } from './actions';
+import PendingModal from '@/components/PendingModal';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,6 +12,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
         <div className="muted">Sign in to manage orders</div>
         {sp.error && <div className="flash err" style={{ marginTop: 14, marginBottom: 0 }}>Wrong password</div>}
         <form action={login}>
+          <PendingModal title="Signing in…" detail="Checking your password." />
           <input type="hidden" name="next" value={sp.next ?? '/'} />
           <input type="password" name="password" placeholder="Admin password" autoFocus required />
           <button className="btn primary" type="submit">Sign in</button>

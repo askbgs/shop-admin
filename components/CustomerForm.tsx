@@ -1,5 +1,6 @@
 import { DISTRICTS } from '@/lib/lk';
 import type { Customer } from '@/lib/customers';
+import PendingModal from './PendingModal';
 
 export default function CustomerForm({
   action,
@@ -12,6 +13,7 @@ export default function CustomerForm({
 }) {
   return (
     <form action={action} className="card">
+      <PendingModal title={customer ? 'Saving customer…' : 'Creating customer…'} detail="Saving the customer's details." />
       {customer && <input type="hidden" name="id" value={customer.id} />}
       <div className="form-grid">
         <label className="field">

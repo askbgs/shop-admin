@@ -1,6 +1,7 @@
 import { centsToInput, GENDERS } from '@/lib/lk';
 import type { Product } from '@/lib/catalog';
 import PhotoPicker from './PhotoPicker';
+import PendingModal from './PendingModal';
 
 export default function ProductForm({
   action,
@@ -15,6 +16,12 @@ export default function ProductForm({
 }) {
   return (
     <form action={action} className="card">
+      <PendingModal
+        title={product ? 'Saving product…' : 'Creating product…'}
+        detail="Saving the details. This only takes a moment."
+        photoTitle="Creating product…"
+        photoDetail="Uploading the photo to PinPicX and saving the product."
+      />
       {product && <input type="hidden" name="id" value={product.id} />}
       <div className="form-grid">
         <label className="field full">

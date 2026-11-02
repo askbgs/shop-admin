@@ -9,6 +9,7 @@ import { centsToInput } from '@/lib/lk';
 import { lowStockThreshold } from '@/lib/queries';
 import { addVariant, deleteProduct, deleteVariant, updateProduct, updateVariant } from '../actions';
 import { removeImage, uploadImage } from '../image-actions';
+import PendingModal from '@/components/PendingModal';
 
 export const dynamic = 'force-dynamic';
 
@@ -73,6 +74,7 @@ export default async function ProductPage({
               <div className="muted">This product appears in {orderLines} order {orderLines === 1 ? 'line' : 'lines'}, so it can&apos;t be deleted. Untick <b>Active</b> to hide it from the agent.</div>
             ) : (
               <form action={deleteProduct}>
+                <PendingModal title="Deleting product…" detail="Removing the product, its variants and photos." />
                 <input type="hidden" name="id" value={product.id} />
                 <div className="muted" style={{ marginBottom: 10 }}>Removes the product and all its variants. This can&apos;t be undone.</div>
                 <button className="btn danger" type="submit">Delete product</button>
@@ -119,12 +121,14 @@ export default async function ProductPage({
                     <td className="tight">
                       <div className="actions" style={{ flexWrap: 'nowrap' }}>
                         <form id={fid} action={updateVariant}>
+                          <PendingModal title="Saving variant…" detail="Updating size, colour, price and stock." />
                           <input type="hidden" name="product_id" value={product.id} />
                           <input type="hidden" name="variant_id" value={v.id} />
                           <button className="btn" type="submit">Save</button>
                         </form>
                         {v.sold === 0 && (
                           <form action={deleteVariant}>
+                            <PendingModal title="Deleting variant…" />
                             <input type="hidden" name="product_id" value={product.id} />
                             <input type="hidden" name="variant_id" value={v.id} />
                             <button className="btn danger" type="submit" title="Delete variant">✕</button>
@@ -146,6 +150,7 @@ export default async function ProductPage({
                 <td />
                 <td className="tight">
                   <form id="v-new" action={addVariant}>
+                    <PendingModal title="Adding variant…" />
                     <input type="hidden" name="product_id" value={product.id} />
                     <button className="btn primary" type="submit">+ Add</button>
                   </form>

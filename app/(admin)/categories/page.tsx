@@ -2,6 +2,7 @@ import Link from 'next/link';
 import Flash from '@/components/Flash';
 import { listCategories } from '@/lib/catalog';
 import { addCategory, deleteCategory, renameCategory } from './actions';
+import PendingModal from '@/components/PendingModal';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,6 +31,7 @@ export default async function CategoriesPage({ searchParams }: { searchParams: P
                   <tr key={c.id}>
                     <td>
                       <form id={`c-${c.id}`} action={renameCategory} style={{ display: 'flex', gap: 8 }}>
+                        <PendingModal title="Renaming category…" detail="Updating the category and all its products." />
                         <input type="hidden" name="id" value={c.id} />
                         <input className="inline-input" name="name" defaultValue={c.name} required maxLength={80} />
                       </form>
@@ -43,6 +45,7 @@ export default async function CategoriesPage({ searchParams }: { searchParams: P
                         <button className="btn" type="submit" form={`c-${c.id}`}>Rename</button>
                         {c.product_count === 0 && (
                           <form action={deleteCategory}>
+                            <PendingModal title="Deleting category…" />
                             <input type="hidden" name="id" value={c.id} />
                             <button className="btn danger" type="submit" title="Delete category">✕</button>
                           </form>
@@ -56,6 +59,7 @@ export default async function CategoriesPage({ searchParams }: { searchParams: P
           )}
         </div>
         <form action={addCategory} className="card">
+          <PendingModal title="Adding category…" />
           <h2>Add category</h2>
           <label className="field">
             <span>Name</span>

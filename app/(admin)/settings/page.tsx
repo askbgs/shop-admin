@@ -3,6 +3,7 @@ import { q } from '@/lib/db';
 import { dateTime, lkr } from '@/lib/format';
 import { centsToInput, DISTRICTS } from '@/lib/lk';
 import { saveSettings } from './actions';
+import PendingModal from '@/components/PendingModal';
 
 export const dynamic = 'force-dynamic';
 
@@ -53,6 +54,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
       <Flash ok={sp.ok} err={sp.err} okText={{ saved: 'Store settings saved. The agent uses them from the next message.' }} />
 
       <form action={saveSettings} className="card" style={{ maxWidth: 900 }}>
+        <PendingModal title="Saving store settings…" detail="The WhatsApp agent uses them from the next message." />
         <div className="form-grid">
           <div className="section-title">Store</div>
           <Text name="store_name" label="Store name *" value={s.store_name} max={120} />
